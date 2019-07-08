@@ -1,0 +1,36 @@
+cabal-version:       >=1.10
+name:                mpv
+version:             0.1.0.0
+synopsis:            Video playback library based on libmpv.
+description:         Mid-level library for embedding the MPV video player into
+                     Haskell applications.
+homepage:            https://github.com/valderman/haskell-mpv
+license:             ISC
+license-file:        LICENSE
+author:              Anton Ekblad
+maintainer:          anton@ekblad.cc
+category:            Codec
+build-type:          Simple
+
+library
+  exposed-modules:
+    Codec.MPV
+    Codec.MPV.Simple
+  other-modules:
+    Codec.MPV.CAPI
+    Codec.MPV.Chan
+    Codec.MPV.Commands
+    Codec.MPV.Core
+    Codec.MPV.Events
+    Codec.MPV.Types
+  other-extensions:
+    ForeignFunctionInterface
+  build-depends:
+  build-depends:
+    base >=4.8 && <5,
+    sdl2 >=2.5 && <2.6,
+    text >=1.2 && <1.3
+  hs-source-dirs: src
+  default-language: Haskell2010
+  extra-libraries: mpv
+  c-sources: csrc/mpv_helpers.c
