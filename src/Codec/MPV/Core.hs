@@ -98,7 +98,8 @@ create = do
 --   is highly likely to segfault your program.
 --
 --   To cause the destruction of an MPV instance from another thread, see
---   'quit'.
+--   'quit'. In fact, you should always prefer @quit@ over this function
+--   whenever possible.
 destroy :: MPV -> IO ()
 destroy mpv = modifyMVar_ (mpvHandle mpv) $ \mh -> do
   case mh of
