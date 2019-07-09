@@ -1,17 +1,19 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Codec.MPV.Types where
 import Control.Concurrent (MVar)
 import Control.Exception
 import Data.Int (Int64)
 import Data.IORef (IORef)
-import Foreign.Ptr
+import Data.Text (Text, unpack)
+import Foreign.Ptr (Ptr, FunPtr)
 import Codec.MPV.CAPI
 import Codec.MPV.Chan (Chan)
 
 -- | The name of some MPV property.
-type PropertyName = String
+type PropertyName = Text
 
 -- | The name of some MPV option.
-type OptionName = String
+type OptionName = Text
 
 -- | A handle to a watch initiated by 'watchProperty'.
 --   Can be passed to 'unwatchProperty' to stop receiving new updates for
@@ -36,13 +38,13 @@ data MPV = MPV
 -- | Exception signalling that an MPV error occurred.
 data MPVErrorException = MPVErrorException
   { mpvErrorCode :: Int
-  , mpvErrorDescription :: String
+  , mpvErrorDescription :: Text
   }
 
 instance Show MPVErrorException where
   show e = concat
     [ "MPV error ", show (mpvErrorCode e), ": "
-    , mpvErrorDescription e
+    , unpack (mpvErrorDescription e)
     ]
 instance Exception MPVErrorException
 
@@ -72,7 +74,7 @@ data MPVLogLevel
   | LogTrace
     deriving (Show, Read, Eq)
 
-logLevelStr :: MPVLogLevel -> String
+logLevelStr :: MPVLogLevel -> Text
 logLevelStr LogNone    = "no"
 logLevelStr LogFatal   = "fatal"
 logLevelStr LogError   = "error"
@@ -91,7 +93,7 @@ data MPVEndFileReason
 
 data MPVEvent
   = ShutdownEvent
-  | LogEvent String MPVLogLevel String
+  | LogEvent Text MPVLogLevel Text
   | StartFileEvent
   | EndFileEvent MPVEndFileReason
   | FileLoadedEvent
@@ -101,7 +103,7 @@ data MPVEvent
   | AudioReconfigEvent
   | SeekEvent
   | PlaybackRestartEvent
-  | PropertyChangeEvent String String
+  | PropertyChangeEvent Text Text
   | EventQueueOverflowEvent
   | RenderEvent
     deriving (Show, Eq)

@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Codec.MPV.Core
   ( MPV, MPVLogLevel (..), MPVEndFileReason (..), MPVEvent (..)
   , PropertyName, OptionName, WatchHandle
@@ -15,7 +16,9 @@ import Control.Concurrent hiding (Chan, newChan)
 import Control.Exception
 import Control.Monad
 import Data.IORef
-import qualified Data.Text as Text
+import Data.Text (Text)
+import Data.Text.Encoding (encodeUtf8, decodeUtf8)
+import qualified Data.ByteString as BS
 import Foreign.C
 import Foreign.Marshal hiding (void)
 import Foreign.Ptr
@@ -32,7 +35,7 @@ check :: IO CInt -> IO ()
 check m = do
   res <- m
   when (res < 0) $ do
-    str <- peekCString =<< mpv_error_string res
+    str <- fmap decodeUtf8 . BS.packCString =<< mpv_error_string res
     throw $ MPVErrorException
       { mpvErrorCode = fromIntegral res
       , mpvErrorDescription = str
@@ -140,7 +143,9 @@ quit mpv = sendCommand mpv ["quit"]
 --   This function is idempotent.
 setLogLevel :: MPV -> MPVLogLevel -> IO ()
 setLogLevel mpv lvl = withHandle mpv $ \h -> do
-  withCString (logLevelStr lvl) (check . mpv_request_log_messages h)
+  BS.useAsCString
+    (encodeUtf8 $ logLevelStr lvl)
+    (check . mpv_request_log_messages h)
 
 -- | Render the current MPV frame with the given width and height to the
 --   default frame buffer object of the current OpenGL context.
@@ -154,11 +159,11 @@ renderFrame mpv w h = withHandle mpv $ \_ -> do
 -- | Send the given command to MPV.
 --   For a comprehensive list of available commands, see
 --   <https://mpv.io/manual/stable/#command-interface>.
-sendCommand :: MPV -> [String] -> IO ()
+sendCommand :: MPV -> [Text] -> IO ()
 sendCommand mpv command = withHandle mpv $ \h -> go 1 [] h command
   where
     go n cmds' h (cmd:cmds) = do
-      withCString cmd $ \cmd' -> go (n+1) (cmd':cmds') h cmds
+      BS.useAsCString (encodeUtf8 cmd) $ \cmd' -> go (n+1) (cmd':cmds') h cmds
     go n cmds' h [] =
       allocaBytes (pTR_SIZE*n) $ \ptr -> do
         forM_ (zip [0, pTR_SIZE ..] (reverse (nullPtr:cmds'))) $ \(off, str) -> do
@@ -166,26 +171,26 @@ sendCommand mpv command = withHandle mpv $ \h -> go 1 [] h command
         check $ mpv_command h ptr
 
 -- | Gets the value of the given property.
-getProperty :: MPV -> PropertyName -> IO String
+getProperty :: MPV -> PropertyName -> IO Text
 getProperty mpv prop = withHandle mpv $ \h -> do
-  result <- withCString prop $ mpv_get_property_string h
-  string <- peekCString result
+  result <- BS.useAsCString (encodeUtf8 prop) $ mpv_get_property_string h
+  string <- decodeUtf8 <$> BS.packCString result
   mpv_free result
   return string
 
 -- | Gets the value of the given property.
 --   This function is idempotent.
-setProperty :: MPV -> PropertyName -> String -> IO ()
+setProperty :: MPV -> PropertyName -> Text -> IO ()
 setProperty mpv prop value = withHandle mpv $ \h -> do
-  withCString prop $ \prop' -> do
-    withCString value $ \value' -> do
+  BS.useAsCString (encodeUtf8 prop) $ \prop' -> do
+    BS.useAsCString (encodeUtf8 value) $ \value' -> do
       check $ mpv_set_property_string h prop' value'
 
 -- | Watch the given property. Whenever the property changes, its new value
 --   will be returned from 'waitEvent' as a 'PropertyChangedEvent'.
 watchProperty :: MPV -> PropertyName -> IO WatchHandle
 watchProperty mpv prop = withHandle mpv $ \h -> do
-  withCString prop $ \prop' -> do
+  BS.useAsCString (encodeUtf8 prop) $ \prop' -> do
     wh <- freshWatchHandle
     check $ mpv_observe_property h (unW wh) prop' 1
     return wh
@@ -199,8 +204,8 @@ unwatchProperty mpv wh = withHandle mpv $ \h -> do
 --   See <https://mpv.io/manual/master/#options> for a complete list of
 --   available options.
 --   This function is idempotent.
-setOption :: MPV -> OptionName -> String -> IO ()
+setOption :: MPV -> OptionName -> Text -> IO ()
 setOption mpv opt value = withHandle mpv $ \h -> do
-  withCString opt $ \opt' -> do
-    withCString value $ \value' -> do
+  BS.useAsCString (encodeUtf8 opt) $ \opt' -> do
+    BS.useAsCString (encodeUtf8 value) $ \value' -> do
       check $ mpv_set_option_string h opt' value'

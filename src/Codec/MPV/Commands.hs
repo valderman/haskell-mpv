@@ -1,5 +1,7 @@
+{-# LANGUAGE OverloadedStrings #-}
 -- | Higher-level commands build on top of 'sendCommand'.
 module Codec.MPV.Commands where
+import Data.Text (Text, pack)
 import Codec.MPV.Core
 import Codec.MPV.Types (MPV)
 
@@ -9,16 +11,16 @@ data SeekMode = Absolute | Relative
 data ScreenshotMode = WithSubs | WithoutSubs
 
 -- | Load and play the given file.
-loadFile :: MPV -> FilePath -> IO ()
+loadFile :: MPV -> Text -> IO ()
 loadFile mpv f = sendCommand mpv ["loadfile", f]
 
 -- | Load the given subtitle file and set it as the active subtitle track
 --   for the currently playing video.
-loadSubtitle :: MPV -> FilePath -> IO ()
+loadSubtitle :: MPV -> Text -> IO ()
 loadSubtitle mpv f = sendCommand mpv ["sub-add", f]
 
 -- | Show the given text on the OSD.
-showOSD :: MPV -> String -> IO ()
+showOSD :: MPV -> Text -> IO ()
 showOSD mpv s = sendCommand mpv ["show-text", s]
 
 -- | Show progressbar, elapsed time and total time on the OSD.
@@ -45,13 +47,13 @@ playPause = flip sendCommand ["cycle", "pause"]
 --   if mode is 'Relative', or to the exact time if mode is 'Absolute'.
 --   The given time may be negative.
 seek :: MPV -> SeekMode -> Int -> IO ()
-seek mpv mode t = sendCommand mpv ["seek", show t, showMode mode]
+seek mpv mode t = sendCommand mpv ["seek", pack (show t), showMode mode]
   where
     showMode Absolute = "absolute"
     showMode Relative = "relative"
 
 -- | Save a screenshot to the given file.
-screenshot :: MPV -> ScreenshotMode -> FilePath -> IO ()
+screenshot :: MPV -> ScreenshotMode -> Text -> IO ()
 screenshot mpv mode f = sendCommand mpv ["screenshot-to-file", f, showMode mode]
   where
     showMode WithSubs    = "subtitles"

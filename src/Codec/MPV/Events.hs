@@ -3,6 +3,8 @@ module Codec.MPV.Events (waitEvent) where
 import Control.Concurrent hiding (Chan)
 import Control.Exception
 import Control.Monad
+import Data.Text.Encoding (decodeUtf8)
+import qualified Data.ByteString as BS
 import Foreign.C
 import Foreign.Ptr (nullPtr)
 import Foreign.Storable
@@ -57,8 +59,8 @@ waitEvent mpv = do
 
     getLogEvent evt = do
       evtdata <- getEventData evt
-      prefix <- peekCString =<< peekByteOff evtdata 0
-      msg <- peekCString =<< peekByteOff evtdata (pTR_SIZE*2)
+      prefix <- fmap decodeUtf8 . BS.packCString =<< peekByteOff evtdata 0
+      msg <- fmap decodeUtf8 . BS.packCString =<< peekByteOff evtdata (pTR_SIZE*2)
       levelNum <- peekByteOff evtdata (pTR_SIZE*3)
       let level = case levelNum :: CInt of
             0  -> LogNone
@@ -84,13 +86,13 @@ waitEvent mpv = do
 
     getPropertyChangeEvent evt = do
       evtdata <- getEventData evt
-      name <- peekCString =<< peekByteOff evtdata 0
+      name <- fmap decodeUtf8 . BS.packCString =<< peekByteOff evtdata 0
       format <- peekByteOff evtdata pTR_SIZE
       when ((format :: CInt) /= 1) $ do
         throw $ MPVFormatException (fromIntegral format)
       textptr <- peekByteOff evtdata (pTR_SIZE*2)
       ctext <- peekByteOff textptr 0
-      text <- peekCString ctext
+      text <- decodeUtf8 <$> BS.packCString ctext
       return $ PropertyChangeEvent name text
 
     readEvent evt = do
